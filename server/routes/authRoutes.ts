@@ -1,6 +1,8 @@
 import express from 'express';
 import { signup, login, logout, getMe } from '../controllers/authController';
-import { protect } from '../middleware/auth'; // We will create this next
+// --- FIX IS HERE ---
+import { authMiddleware } from '../middleware/auth'; // Changed 'protect' to 'authMiddleware'
+// --------------------
 
 const router = express.Router();
 
@@ -10,8 +12,9 @@ router.post('/login', login);
 router.post('/logout', logout);
 
 // Protected route
-// Only a logged-in user can access this route
-router.get('/me', protect, getMe);
+// --- AND HERE ---
+router.get('/me', authMiddleware, getMe); // Changed 'protect' to 'authMiddleware'
+// ----------------
 
 export default router;
 

@@ -1,55 +1,133 @@
 import { Request, Response } from 'express';
-import User, { IUser } from '../models/User';
-import jwt from 'jsonwebtoken';
-
-export const signup = async (req: Request, res: Response) => { ... };
-export const login = async (req: Request, res: Response) => { ... };
-export const logout = async (req: Request, res: Response) => { ... };
-export const getMe = async (req: AuthRequest, res: Response) => { ... };
-// Helper function to generate a JWT token
-const generateToken = (id: string) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET!, {
-    expiresIn: '30d',
-  });
-};
+import bcrypt from 'bcryptjs';
+import User from '../models/User';
+import { generateToken } from '../utils/jwt';
+import { AuthRequest } from '../middleware/auth';
 
 /**
- * @desc    Register a new user
- * @route   POST /api/users/register
+ * @desc    Register a new user (signup)
+ * @route   POST /api/users/signup
  * @access  Public
  */
-export const registerUser = async (req: Request, res: Response) => {
-  const { name, email, password, sobrietyStartDate } = req.body;
-
+export const signup = async (req: Request, res: Response) => {
   try {
-    // 1. Check if user already exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User with this email already exists.' });
+    const { name, email, password, sobrietyStartDate } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this email already exists' });
     }
 
-    // 2. Create the new user in the database
-    const user: IUser = await User.create({
+    // Create a new user instance. The password will be hashed by the pre-save hook in User.ts
+    const user = new User({
       name,
       email,
       password,
-      sobrietyStartDate,
+      sobrietyStartDate: sobrietyStartDate || new Date(),
     });
 
-    // 3. If user was created successfully, send back user data and a token
-    if (user) {
-      res.status(201).json({
-        _id: user._id,
+    await user.save();
+
+    // Generate a token for the new user
+    const token = generateToken(user.id.toString());
+
+    // Set the token in an HTTP-only cookie for security
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Send back a success response
+    res.status(201).json({
+      message: 'User created successfully',
+      user: {
+        id: user._id,
         name: user.name,
         email: user.email,
-        token: generateToken(user._id.toString()),
-      });
-    } else {
-      res.status(400).json({ message: 'Invalid user data.' });
-    }
+        hasCompletedAssessment: user.hasCompletedAssessment,
+      },
+      token,
+    });
   } catch (error) {
-    console.error('Registration Error:', error);
-    res.status(500).json({ message: 'Server error during registration.' });
+    console.error('Signup error:', error);
+    res.status(500).json({ message: 'Server error during signup' });
+  }
+};
+
+/**
+ * @desc    Authenticate user & get token (login)
+ * @route   POST /api/users/login
+ * @access  Public
+ */
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Compare entered password with hashed password in the database
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const token = generateToken(user.id.toString());
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        hasCompletedAssessment: user.hasCompletedAssessment,
+        sobrietyStartDate: user.sobrietyStartDate,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * @desc    Logout user / clear cookie
+ * @route   POST /api/users/logout
+ * @access  Private
+ */
+export const logout = async (req: Request, res: Response) => {
+  res.clearCookie('token');
+  res.json({ message: 'Logged out successfully' });
+};
+
+/**
+ * @desc    Get user profile
+ * @route   GET /api/users/me
+ * @access  Private
+ */
+export const getMe = async (req: AuthRequest, res: Response) => {
+  try {
+    // req.userId is attached by the authMiddleware
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
