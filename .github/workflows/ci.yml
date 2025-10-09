@@ -10,6 +10,11 @@ on:
   push:
     branches: [ "main" ]
 
+# Add permissions for the pipeline to write to the container registry
+permissions:
+  contents: read
+  packages: write
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
   # This job is named "build-and-test"
@@ -46,23 +51,20 @@ jobs:
       
       # Step 5: Sonarqube Scan (Static Code Analysis)
       # This step runs a static analysis scan to check for bugs, vulnerabilities,
-      # and code smells. It acts as a Quality Gate.
+      # and code smells. The action will fail if the SonarQube Quality Gate is not met.
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
-          # --- FIX: Explicitly pass the project key and organization ---
-          # These values tell the scanner which project in SonarCloud to send the report to.
-          # Replace 'your-project-key' and 'your-organization-key' with the actual values
-          # you copied from your SonarCloud project dashboard.
-          args: >
+          args: |
             -Dsonar.projectKey=VanishaParwal_calytebackend
             -Dsonar.organization=vanishaparwal123
 
-  # This job depends on the successful completion of "build-and-test"
-  containerize-and-scan:
+  # This job packages, scans, and publishes the verified application
+  scan-and-publish:
+    # This job only runs if the build-and-test job was successful
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
@@ -70,31 +72,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up Docker Buildx
-      # This action sets up the Docker build environment.
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      # Step 2: Log in to GitHub Container Registry
+      # This uses a special, secure token that GitHub Actions provides automatically.
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Build the Docker image
-      # This step builds the Docker image using the Dockerfile in the 'server' directory.
+      # Step 3: Build Docker image for scanning
+      # This step builds the image but does not push it yet.
+      # `load: true` makes the image available to subsequent steps on the runner.
       - name: Build Docker image
+        id: build-image
         uses: docker/build-push-action@v5
         with:
           context: ./server
-          push: false # We are not pushing to a registry yet
-          tags: calyte-backend:latest
-          load: true # Load the image into the runner for scanning
+          push: false # Do not push yet
+          tags: ghcr.io/${{ github.repository }}:latest
+          load: true # Load the image for scanning
 
-      # Step 4: Trivy Scan (Vulnerability Scanning)
-      # This step scans the built Docker image for known vulnerabilities.
-      # If high or critical vulnerabilities are found, the pipeline will fail.
+      # Step 4: Run Trivy vulnerability scanner
+      # This is the restored DevSecOps step. It scans the image we just built.
+      # If it finds critical or high severity vulnerabilities, the pipeline will fail.
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'calyte-backend:latest'
+          image-ref: 'ghcr.io/${{ github.repository }}:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+      # Step 5: Push the scanned image to the registry
+      # This step only runs if the Trivy scan was successful.
+      - name: Push Docker image to GHCR
+        run: docker push ghcr.io/${{ github.repository }}:latest
 
