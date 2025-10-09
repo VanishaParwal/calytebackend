@@ -22,6 +22,9 @@ jobs:
       # Step 1: Check out your repository code
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # This is required for SonarQube to correctly analyze branches and pull requests
+          fetch-depth: 0
 
       # Step 2: Set up the Node.js environment
       - name: Setup Node.js
@@ -49,6 +52,14 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          # --- FIX: Explicitly pass the project key and organization ---
+          # These values tell the scanner which project in SonarCloud to send the report to.
+          # Replace 'your-project-key' and 'your-organization-key' with the actual values
+          # you copied from your SonarCloud project dashboard.
+          args: >
+            -Dsonar.projectKey= VanishaParwal_calytebackend
+            -Dsonar.organization= vanishaparwal123
 
   # This job depends on the successful completion of "build-and-test"
   containerize-and-scan:
@@ -86,3 +97,4 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
