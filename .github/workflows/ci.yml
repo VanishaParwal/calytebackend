@@ -58,8 +58,8 @@ jobs:
           # Replace 'your-project-key' and 'your-organization-key' with the actual values
           # you copied from your SonarCloud project dashboard.
           args: >
-            -Dsonar.projectKey= VanishaParwal_calytebackend
-            -Dsonar.organization= vanishaparwal123
+            -Dsonar.projectKey=VanishaParwal_calytebackend
+            -Dsonar.organization=vanishaparwal123
 
   # This job depends on the successful completion of "build-and-test"
   containerize-and-scan:
