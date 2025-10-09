@@ -90,7 +90,7 @@ jobs:
         with:
           context: ./server
           push: false # Do not push yet
-          tags: ghcr.io/${{ toLower(github.repository) }}:latest
+          tags: ghcr.io/${{ toLowerCase(github.repository) }}:latest
           load: true # Load the image for scanning
 
       # Step 4: Run Trivy vulnerability scanner
