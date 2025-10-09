@@ -81,33 +81,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Build Docker image for scanning
+      # Step 3: Set image name to lowercase
+      # This step uses a shell command to convert the repository name to lowercase
+      # and saves it as an environment variable for the subsequent steps.
+      - name: Set image name to lowercase
+        run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      # Step 4: Build Docker image for scanning
       # This step builds the image but does not push it yet.
-      # `load: true` makes the image available to subsequent steps on the runner.
+      # It now uses the lowercase IMAGE_NAME environment variable.
       - name: Build Docker image
         id: build-image
         uses: docker/build-push-action@v5
         with:
           context: ./server
           push: false # Do not push yet
-          tags: ghcr.io/${{ toLowerCase(github.repository) }}:latest
+          tags: ghcr.io/${{ env.IMAGE_NAME }}:latest
           load: true # Load the image for scanning
 
-      # Step 4: Run Trivy vulnerability scanner
-      # This is the restored DevSecOps step. It scans the image we just built.
-      # If it finds critical or high severity vulnerabilities, the pipeline will fail.
+      # Step 5: Run Trivy vulnerability scanner
+      # This step scans the image we just built using the lowercase name.
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ github.repository }}:latest'
+          image-ref: 'ghcr.io/${{ env.IMAGE_NAME }}:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
-      # Step 5: Push the scanned image to the registry
+      # Step 6: Push the scanned image to the registry
       # This step only runs if the Trivy scan was successful.
       - name: Push Docker image to GHCR
-        run: docker push ghcr.io/${{ github.repository }}:latest
+        run: docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
 
