@@ -31,5 +31,10 @@
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
-  }
+  },
+  "overrides": {
+  "execa": "^7.1.1",
+  "cross-spawn": "7.0.5"
+}
+
 }
