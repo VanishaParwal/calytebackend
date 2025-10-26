@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@types/sentiment": "^5.0.4",
+    "cross-spawn": "^7.0.6",
+    "sentiment": "^5.0.2"
+  }
+}

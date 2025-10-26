@@ -1,0 +1,12 @@
+# Ignore the local node_modules folder. This is the most important line.
+node_modules
+
+# Ignore the local .env file. Secrets should be passed in at runtime.
+.env
+
+# Ignore the compiled TypeScript output. We will build inside the container.
+dist
+
+# Ignore npm logs and cache
+npm-debug.log
+*.tsbuildinfo

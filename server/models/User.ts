@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import bcrypt from 'bcryptjs'; // <-- ADD THIS IMPORT
+import bcrypt from 'bcryptjs';
 
+// 1. We are RE-ADDING the exported IUser interface
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -8,8 +9,6 @@ export interface IUser extends Document {
   sobrietyStartDate: Date;
   substanceType?: string;
   hasCompletedAssessment: boolean;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 const UserSchema: Schema = new Schema(
@@ -24,17 +23,17 @@ const UserSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-// --- ADD THIS MIDDLEWARE ---
-// Before a user document is saved, this function will run and hash the password
-UserSchema.pre('save', async function (next) {
+// Add the password hashing middleware back (as it was in our previous logic)
+UserSchema.pre<IUser>('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
   }
   const salt = await bcrypt.genSalt(10);
+  // We use 'as string' to solve the TypeScript type error
   this.password = await bcrypt.hash(this.password as string, salt);
   next();
 });
-// -------------------------
 
+// 2. We are USING the 'export default' that the controller expects
 export default mongoose.model<IUser>('User', UserSchema);
 

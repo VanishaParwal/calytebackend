@@ -4,6 +4,8 @@ dotenv.config(); // Corrected import for dotenv
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import connectDB from './config/database';
+import journalRoutes from './routes/journalRoutes'; // Import the new journal routes
+
 
 // Import your API routes
 import authRoutes from './routes/authRoutes';
