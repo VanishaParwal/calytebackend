@@ -110,7 +110,8 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           # Explicitly point to the ignore file within the build context/image
-          args: '--ignorefile /app/.trivyignore' # Path inside the container
+          trivyignores: server/.trivyignore 
+            # Path inside the container
 
       # Step 7: Push the scanned and verified image to the registry
       - name: Push Docker image to GHCR
