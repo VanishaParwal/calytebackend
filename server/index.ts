@@ -1,68 +1,88 @@
 import express, { Express } from 'express';
-import dotenv from 'dotenv';
-dotenv.config(); // Corrected import for dotenv
+import * as dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import connectDB from './config/database';
-import journalRoutes from './routes/journalRoutes'; // Import the new journal routes
-
-
-// Import your API routes
 import authRoutes from './routes/authRoutes';
+import journalRoutes from './routes/journalRoutes';
+import dashboardRoutes from './routes/dashboardRoutes'; // Route for core dashboard data
+import activityRoutes from './routes/activityRoutes'; // Route for daily activity logs
 
-// Immediately load environment variables from the .env file
+import Helpline from './models/Helpline'; // Import models
+import Quote from './models/Quote';
+import { helplinesData, motivationalQuotesData } from './config/seedData'; // Assume you move arrays to a config file
+import { connect } from 'http2';
+
+
+// Load environment variables from .env file
 dotenv.config();
 
-// Initialize the Express application
 const app: Express = express();
 const PORT = process.env.PORT || 5001;
 
+// --- Middleware Setup ---
+// Enable CORS for frontend communication
+app.use(cors());
+// Parse JSON request bodies
+app.use(express.json());
+// Parse cookies from requests
+app.use(cookieParser());
+
+// --- API Routes Setup ---
+// Mount the different route handlers onto specific base paths
+app.use('/api/users', authRoutes); // Authentication routes
+app.use('/api/journal', journalRoutes); // Journaling routes
+app.use('/api/dashboard', dashboardRoutes); // Core dashboard data route
+app.use('/api/activity', activityRoutes); // Daily activity logging routes
+
+// --- Start Server ---
 /**
- * An async function to start the server.
- * This ensures we connect to the database *before* the server starts listening for requests.
+ * Asynchronously starts the server after ensuring database connection.
  */
 const startServer = async () => {
+  const seedDatabase = async () => {
   try {
-    // Attempt to connect to MongoDB
-    const dbConnected = await connectDB();
-
-    // If the database connection fails, do not start the server
-    if (!dbConnected) {
-      console.error("❌ Server did not start due to database connection failure.");
-      process.exit(1); // Exit the process with an error code
+    // Check if Helplines exist
+    const helplineCount = await Helpline.countDocuments();
+    if (helplineCount === 0) {
+      console.log(' Seeding Helplines...');
+      await Helpline.insertMany(helplinesData); // Use data from seedData.ts
+      console.log(' Helplines seeded.');
     }
 
-    // --- MIDDLEWARE SETUP ---
-    // Enable Cross-Origin Resource Sharing to allow your frontend to communicate with this backend
-    app.use(cors({
-      origin: 'http://localhost:3000', // IMPORTANT: Replace with your actual frontend URL
-      credentials: true, // This allows cookies to be sent
-    }));
-
-    // Allow the server to parse incoming JSON data
-    app.use(express.json());
-
-    // Allow the server to parse cookies from requests
-    app.use(cookieParser());
-
-
-    // --- API ROUTES ---
-    // Tell the application to use the auth routes for any URL starting with /api/users
-    app.use('/api/users', authRoutes);
-
-
-    // --- START LISTENING ---
-    // Start the server and listen for incoming requests on the specified port
-    app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
-    });
-
+    // Check if Quotes exist
+    const quoteCount = await Quote.countDocuments();
+    if (quoteCount === 0) {
+      console.log(' Seeding Quotes...');
+      await Quote.insertMany(motivationalQuotesData.map(q => ({ text: q }))); // Map quotes to schema
+      console.log(' Quotes seeded.');
+    }
   } catch (error) {
-    console.error("❌ An unexpected error occurred during server startup:", error);
+    console.error(' Error during database seeding:', error);
+  }
+};
+
+  try {
+    const dbConnected = await connectDB();
+    if (dbConnected) {
+      // Seed after successful DB connection
+      await seedDatabase();
+      app.listen(PORT, () => {
+        console.log(`🚀 Server is running on port ${PORT}`);
+      });
+    } else {
+      // This should ideally be handled within connectDB, but provides a fallback
+      throw new Error('Database connection failed, server cannot start.');
+    }
+  } catch (error) {
+    console.error('Server failed to start:', error);
+    // Exit process with failure code if server cannot initialize
     process.exit(1);
   }
 };
 
-// Execute the function to start the server
+// Initiate the server startup sequence
 startServer();
+
+
 
