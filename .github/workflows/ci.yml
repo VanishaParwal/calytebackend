@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # This is a GitHub Actions workflow file.
 # It defines a set of automated jobs that run in response to events.
 
@@ -115,3 +116,123 @@ jobs:
       # Step 7: Push the scanned and verified image to the registry
       - name: Push Docker image to GHCR
         run: docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
+=======
+# This is a GitHub Actions workflow file.
+# It defines a set of automated jobs that run in response to events.
+
+# Name of the workflow, which will be displayed on the "Actions" tab in GitHub
+name: Backend CI/CD & Security Pipeline
+
+# This specifies the trigger for the workflow.
+# It will run on every push event to the "main" branch.
+on:
+  push:
+    branches: [ "main" ]
+
+# Add permissions for the pipeline to write to the container registry
+permissions:
+  contents: read
+  packages: write
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel.
+jobs:
+  # This job is named "build-and-test"
+  build-and-test:
+    # This specifies that the job will run on the latest version of an Ubuntu virtual machine.
+    runs-on: ubuntu-latest
+
+    # The steps represent a sequence of tasks that will be executed as part of the job.
+    steps:
+      # Step 1: Check out your repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # This is required for SonarQube to correctly analyze branches and pull requests
+          fetch-depth: 0
+
+      # Step 2: Set up the Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Use Node.js version 20
+
+      # Step 3: Install dependencies for the backend
+      # This step runs 'npm ci' inside the 'server' directory for reliable installs.
+      - name: Install server dependencies
+        run: cd server && npm ci
+
+      # Step 4: Build the TypeScript code
+      # Runs the 'build' script from the server's package.json. Fails on TS errors.
+      - name: Build backend project
+        run: cd server && npm run build
+
+      # Step 5: Sonarqube Scan (Static Code Analysis)
+      # Checks for bugs, vulnerabilities, code smells. Fails if Quality Gate is not met.
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: |
+            -Dsonar.projectKey=VanishaParwal_calytebackend
+            -Dsonar.organization=vanishaparwal123
+            -Dsonar.sources=server 
+# Specify the source directory
+
+  # This job packages, scans, and publishes the verified application
+  scan-and-publish:
+    # This job only runs if the build-and-test job was successful
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3: Log in to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 4: Convert repository name to lowercase for the image tag
+      - name: Set image name to lowercase
+        run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      # Step 5: Build Docker image for scanning (do not push yet)
+      - name: Build Docker image
+        id: build-image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: false
+          tags: ghcr.io/${{ env.IMAGE_NAME }}:latest
+          load: true
+
+      # Step 6: Run Trivy vulnerability scanner on the built image
+      # Now explicitly tells Trivy where to find the ignore file INSIDE the context
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ env.IMAGE_NAME }}:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          # Explicitly point to the ignore file within the build context/image
+          trivyignores: server/.trivyignore 
+            # Path inside the container
+
+      # Step 7: Push the scanned and verified image to the registry
+      - name: Push Docker image to GHCR
+        run: docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
+>>>>>>> 2ace166b02dd451a6d071394bda244462e2d01e7
