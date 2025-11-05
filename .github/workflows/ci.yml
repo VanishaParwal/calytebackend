@@ -10,7 +10,7 @@ on:
   push:
     branches: [ "main" ]
 
-# Add permissions for the pipeline to write to the container registry
+# Add permissions for the pipelgit add ine to write to the container registry
 permissions:
   contents: read
   packages: write
@@ -58,7 +58,8 @@ jobs:
           args: |
             -Dsonar.projectKey=VanishaParwal_calytebackend
             -Dsonar.organization=vanishaparwal123
-            -Dsonar.sources=server # Specify the source directory
+            -Dsonar.sources=server 
+          # Specify the source directory
 
   # This job packages, scans, and publishes the verified application
   scan-and-publish:

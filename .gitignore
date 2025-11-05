@@ -1,4 +1,4 @@
-# Node modules (root only)
+# Node modules
 node_modules/
 
 # Build output
@@ -8,9 +8,12 @@ client/dist/
 
 # Environment variables
 .env
+server/.env
 *.env.local
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+git rm -r --cached server/node_modules
+git rm -r --cached server/.env
