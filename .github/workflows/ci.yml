@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # This is a GitHub Actions workflow file.
 # It defines a set of automated jobs that run in response to events.
 
@@ -116,6 +116,7 @@ jobs:
       # Step 7: Push the scanned and verified image to the registry
       - name: Push Docker image to GHCR
         run: docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
+
 =======
 # This is a GitHub Actions workflow file.
 # It defines a set of automated jobs that run in response to events.
